@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import os
+import streamlit.components.v1 as components
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,7 +13,7 @@ st.set_page_config(
 )
 
 st.title("🤖 AI Voice Assistant")
-st.write("Speak or type your question.")
+st.write("Speak to your AI assistant.")
 
 if "conversation" not in st.session_state:
     st.session_state.conversation = []
@@ -67,7 +68,6 @@ def ask_ai(prompt, api_key):
     ]
 
     for speaker, message in st.session_state.conversation:
-
         messages.append({
             "role": "user" if speaker == "You" else "assistant",
             "content": message
@@ -105,6 +105,33 @@ def ask_ai(prompt, api_key):
     return f"API Error: {response.status_code}"
 
 
+def speak_answer(text):
+
+    safe_text = (
+        text.replace("\\", "\\\\")
+        .replace("`", "\\`")
+        .replace("${", "\\${")
+    )
+
+    html = f"""
+    <script>
+        const text = `{safe_text}`;
+
+        const speech = new SpeechSynthesisUtterance(text);
+
+        speech.lang = "en-US";
+        speech.rate = 1.0;
+        speech.pitch = 1.0;
+        speech.volume = 1.0;
+
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(speech);
+    </script>
+    """
+
+    components.html(html, height=0)
+
+
 api_key = os.getenv("GROQ_API_KEY")
 
 if not api_key:
@@ -124,6 +151,7 @@ if audio:
     with st.spinner("🎧 Understanding your voice..."):
 
         try:
+
             spoken_text = speech_to_text(
                 audio,
                 api_key
@@ -154,11 +182,19 @@ if audio:
                     f"**🤖 Assistant:** {answer}"
                 )
 
+                speak_answer(answer)
+
             else:
-                st.error("I couldn't understand the audio.")
+
+                st.error(
+                    "I couldn't understand the audio."
+                )
 
         except Exception as e:
-            st.error(f"Voice error: {e}")
+
+            st.error(
+                f"Voice error: {e}"
+            )
 
 
 st.divider()
@@ -186,6 +222,12 @@ if st.button("Ask AI") and prompt.strip():
         ("Assistant", answer)
     )
 
+    st.write(
+        f"**🤖 Assistant:** {answer}"
+    )
+
+    speak_answer(answer)
+
 
 st.divider()
 
@@ -194,10 +236,13 @@ st.subheader("💬 Conversation")
 for speaker, message in st.session_state.conversation:
 
     if speaker == "You":
+
         st.markdown(
             f"**🧑 You:** {message}"
         )
+
     else:
+
         st.markdown(
             f"**🤖 Assistant:** {message}"
         )
