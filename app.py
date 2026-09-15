@@ -12,18 +12,49 @@ st.set_page_config(
 )
 
 st.title("🤖 AI Voice Assistant")
-st.write("Ask the AI anything.")
+st.write("Speak or type your question.")
 
 if "conversation" not in st.session_state:
     st.session_state.conversation = []
 
-prompt = st.text_input("Enter your question:")
 
-if st.button("Ask AI") and prompt.strip():
+def speech_to_text(audio_file, api_key):
 
-    st.session_state.conversation.append(
-        ("You", prompt)
+    url = "https://api.groq.com/openai/v1/audio/transcriptions"
+
+    headers = {
+        "Authorization": f"Bearer {api_key}"
+    }
+
+    files = {
+        "file": (
+            "audio.wav",
+            audio_file.getvalue(),
+            "audio/wav"
+        )
+    }
+
+    data = {
+        "model": "whisper-large-v3-turbo",
+        "language": "en",
+        "response_format": "json"
+    }
+
+    response = requests.post(
+        url,
+        headers=headers,
+        files=files,
+        data=data,
+        timeout=60
     )
+
+    if response.status_code == 200:
+        return response.json()["text"].strip()
+
+    return None
+
+
+def ask_ai(prompt, api_key):
 
     messages = [
         {
@@ -36,75 +67,137 @@ if st.button("Ask AI") and prompt.strip():
     ]
 
     for speaker, message in st.session_state.conversation:
+
         messages.append({
             "role": "user" if speaker == "You" else "assistant",
             "content": message
         })
 
-    api_key = os.getenv("GROQ_API_KEY")
+    messages.append({
+        "role": "user",
+        "content": prompt
+    })
 
-    if not api_key:
-        st.error("GROQ_API_KEY is not configured.")
+    url = "https://api.groq.com/openai/v1/chat/completions"
 
-    else:
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
 
-        url = "https://api.groq.com/openai/v1/chat/completions"
+    data = {
+        "model": "openai/gpt-oss-20b",
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": 1024
+    }
 
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
+    response = requests.post(
+        url,
+        headers=headers,
+        json=data,
+        timeout=60
+    )
 
-        data = {
-            "model": "openai/gpt-oss-20b",
-            "messages": messages,
-            "temperature": 0.7,
-            "max_tokens": 1024
-        }
+    if response.status_code == 200:
+        return response.json()["choices"][0]["message"]["content"]
+
+    return f"API Error: {response.status_code}"
+
+
+api_key = os.getenv("GROQ_API_KEY")
+
+if not api_key:
+    st.error("GROQ_API_KEY is not configured.")
+    st.stop()
+
+
+st.subheader("🎤 Voice Input")
+
+audio = st.audio_input(
+    "Click the microphone and speak",
+    sample_rate=16000
+)
+
+if audio:
+
+    with st.spinner("🎧 Understanding your voice..."):
 
         try:
-
-            response = requests.post(
-                url,
-                headers=headers,
-                json=data,
-                timeout=60
+            spoken_text = speech_to_text(
+                audio,
+                api_key
             )
 
-            if response.status_code == 200:
+            if spoken_text:
 
-                result = response.json()
+                st.session_state.conversation.append(
+                    ("You", spoken_text)
+                )
 
-                answer = result["choices"][0]["message"]["content"]
+                st.write(
+                    f"**🧑 You said:** {spoken_text}"
+                )
+
+                with st.spinner("🤖 Thinking..."):
+
+                    answer = ask_ai(
+                        spoken_text,
+                        api_key
+                    )
 
                 st.session_state.conversation.append(
                     ("Assistant", answer)
                 )
 
-            else:
-
-                st.error(
-                    f"API Error: {response.status_code}"
+                st.write(
+                    f"**🤖 Assistant:** {answer}"
                 )
 
-                st.code(response.text)
-
-        except requests.exceptions.Timeout:
-
-            st.error("The AI request timed out.")
-
-        except requests.exceptions.RequestException as e:
-
-            st.error(f"Connection error: {e}")
+            else:
+                st.error("I couldn't understand the audio.")
 
         except Exception as e:
+            st.error(f"Voice error: {e}")
 
-            st.error(f"Unexpected error: {e}")
 
+st.divider()
+
+st.subheader("⌨️ Text Input")
+
+prompt = st.text_input(
+    "Or type your question:"
+)
+
+if st.button("Ask AI") and prompt.strip():
+
+    st.session_state.conversation.append(
+        ("You", prompt)
+    )
+
+    with st.spinner("🤖 Thinking..."):
+
+        answer = ask_ai(
+            prompt,
+            api_key
+        )
+
+    st.session_state.conversation.append(
+        ("Assistant", answer)
+    )
+
+
+st.divider()
+
+st.subheader("💬 Conversation")
 
 for speaker, message in st.session_state.conversation:
 
     if speaker == "You":
-        st.markdown(f"**🧑 You:** {message}")
+        st.markdown(
+            f"**🧑 You:** {message}"
+        )
     else:
-        st.markdown(f"**🤖 Assistant:** {message}")
+        st.markdown(
+            f"**🤖 Assistant:** {message}"
+        )
