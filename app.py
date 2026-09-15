@@ -3,6 +3,7 @@ import requests
 import os
 import streamlit.components.v1 as components
 from dotenv import load_dotenv
+from datetime import datetime
 
 load_dotenv()
 
@@ -13,12 +14,23 @@ st.set_page_config(
 )
 
 st.title("🤖 AI Voice Assistant")
-st.write("Speak to your AI assistant.")
+
+st.write("Developed by **Abubakkar Cheema**")
+
+# Date and time
+current_time = datetime.now().strftime(
+    "%A, %B %d, %Y | %I:%M:%S %p"
+)
+
+st.write(f"🕐 **{current_time}**")
 
 if "conversation" not in st.session_state:
     st.session_state.conversation = []
 
 
+# -----------------------------
+# Speech to Text
+# -----------------------------
 def speech_to_text(audio_file, api_key):
 
     url = "https://api.groq.com/openai/v1/audio/transcriptions"
@@ -55,6 +67,9 @@ def speech_to_text(audio_file, api_key):
     return None
 
 
+# -----------------------------
+# AI / LLM
+# -----------------------------
 def ask_ai(prompt, api_key):
 
     messages = [
@@ -68,6 +83,7 @@ def ask_ai(prompt, api_key):
     ]
 
     for speaker, message in st.session_state.conversation:
+
         messages.append({
             "role": "user" if speaker == "You" else "assistant",
             "content": message
@@ -100,11 +116,15 @@ def ask_ai(prompt, api_key):
     )
 
     if response.status_code == 200:
+
         return response.json()["choices"][0]["message"]["content"]
 
     return f"API Error: {response.status_code}"
 
 
+# -----------------------------
+# Text to Speech
+# -----------------------------
 def speak_answer(text):
 
     safe_text = (
@@ -115,6 +135,7 @@ def speak_answer(text):
 
     html = f"""
     <script>
+
         const text = `{safe_text}`;
 
         const speech = new SpeechSynthesisUtterance(text);
@@ -126,19 +147,55 @@ def speak_answer(text):
 
         window.speechSynthesis.cancel();
         window.speechSynthesis.speak(speech);
+
     </script>
     """
 
-    components.html(html, height=0)
+    components.html(
+        html,
+        height=0
+    )
 
 
+# -----------------------------
+# Stop Speaking
+# -----------------------------
+def stop_speaking():
+
+    html = """
+    <script>
+
+        window.speechSynthesis.cancel();
+
+    </script>
+    """
+
+    components.html(
+        html,
+        height=0
+    )
+
+
+# -----------------------------
+# API Key
+# -----------------------------
 api_key = os.getenv("GROQ_API_KEY")
 
 if not api_key:
+
     st.error("GROQ_API_KEY is not configured.")
     st.stop()
 
 
+# -----------------------------
+# Status
+# -----------------------------
+st.success("🟢 Assistant Ready")
+
+
+# -----------------------------
+# Voice Input
+# -----------------------------
 st.subheader("🎤 Voice Input")
 
 audio = st.audio_input(
@@ -197,6 +254,22 @@ if audio:
             )
 
 
+# -----------------------------
+# Stop Speaking Button
+# -----------------------------
+st.divider()
+
+if st.button(
+    "🛑 Stop Speaking",
+    use_container_width=True
+):
+
+    stop_speaking()
+
+
+# -----------------------------
+# Text Input
+# -----------------------------
 st.divider()
 
 st.subheader("⌨️ Text Input")
@@ -205,7 +278,10 @@ prompt = st.text_input(
     "Or type your question:"
 )
 
-if st.button("Ask AI") and prompt.strip():
+if st.button(
+    "Ask AI",
+    use_container_width=True
+) and prompt.strip():
 
     st.session_state.conversation.append(
         ("You", prompt)
@@ -229,6 +305,9 @@ if st.button("Ask AI") and prompt.strip():
     speak_answer(answer)
 
 
+# -----------------------------
+# Conversation
+# -----------------------------
 st.divider()
 
 st.subheader("💬 Conversation")
@@ -246,3 +325,13 @@ for speaker, message in st.session_state.conversation:
         st.markdown(
             f"**🤖 Assistant:** {message}"
         )
+
+
+# -----------------------------
+# Footer
+# -----------------------------
+st.divider()
+
+st.caption(
+    "🤖 AI Voice Assistant | Developed by Abubakkar Cheema"
+)
