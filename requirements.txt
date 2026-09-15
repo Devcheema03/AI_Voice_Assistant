@@ -1,0 +1,5 @@
+SpeechRecognition
+PyAudio
+python-dotenv
+requests
+pyttsx3
