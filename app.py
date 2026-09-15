@@ -7,30 +7,46 @@ from datetime import datetime
 
 load_dotenv()
 
+# --------------------------------------------------
+# PAGE SETTINGS
+# --------------------------------------------------
+
 st.set_page_config(
     page_title="AI Voice Assistant",
     page_icon="🤖",
     layout="centered"
 )
 
+
+# --------------------------------------------------
+# HEADER
+# --------------------------------------------------
+
 st.title("🤖 AI Voice Assistant")
 
 st.write("Developed by **Abubakkar Cheema**")
 
-# Date and time
 current_time = datetime.now().strftime(
     "%A, %B %d, %Y | %I:%M:%S %p"
 )
 
 st.write(f"🕐 **{current_time}**")
 
+st.success("🟢 Assistant Ready")
+
+
+# --------------------------------------------------
+# SESSION STATE
+# --------------------------------------------------
+
 if "conversation" not in st.session_state:
     st.session_state.conversation = []
 
 
-# -----------------------------
-# Speech to Text
-# -----------------------------
+# --------------------------------------------------
+# SPEECH TO TEXT
+# --------------------------------------------------
+
 def speech_to_text(audio_file, api_key):
 
     url = "https://api.groq.com/openai/v1/audio/transcriptions"
@@ -62,14 +78,16 @@ def speech_to_text(audio_file, api_key):
     )
 
     if response.status_code == 200:
+
         return response.json()["text"].strip()
 
     return None
 
 
-# -----------------------------
+# --------------------------------------------------
 # AI / LLM
-# -----------------------------
+# --------------------------------------------------
+
 def ask_ai(prompt, api_key):
 
     messages = [
@@ -85,7 +103,9 @@ def ask_ai(prompt, api_key):
     for speaker, message in st.session_state.conversation:
 
         messages.append({
-            "role": "user" if speaker == "You" else "assistant",
+            "role": "user"
+            if speaker == "You"
+            else "assistant",
             "content": message
         })
 
@@ -117,18 +137,22 @@ def ask_ai(prompt, api_key):
 
     if response.status_code == 200:
 
-        return response.json()["choices"][0]["message"]["content"]
+        return response.json()[
+            "choices"
+        ][0]["message"]["content"]
 
     return f"API Error: {response.status_code}"
 
 
-# -----------------------------
-# Text to Speech
-# -----------------------------
+# --------------------------------------------------
+# TEXT TO SPEECH
+# --------------------------------------------------
+
 def speak_answer(text):
 
     safe_text = (
-        text.replace("\\", "\\\\")
+        text
+        .replace("\\", "\\\\")
         .replace("`", "\\`")
         .replace("${", "\\${")
     )
@@ -138,7 +162,8 @@ def speak_answer(text):
 
         const text = `{safe_text}`;
 
-        const speech = new SpeechSynthesisUtterance(text);
+        const speech =
+            new SpeechSynthesisUtterance(text);
 
         speech.lang = "en-US";
         speech.rate = 1.0;
@@ -146,6 +171,7 @@ def speak_answer(text):
         speech.volume = 1.0;
 
         window.speechSynthesis.cancel();
+
         window.speechSynthesis.speak(speech);
 
     </script>
@@ -157,9 +183,10 @@ def speak_answer(text):
     )
 
 
-# -----------------------------
-# Stop Speaking
-# -----------------------------
+# --------------------------------------------------
+# STOP SPEAKING
+# --------------------------------------------------
+
 def stop_speaking():
 
     html = """
@@ -176,26 +203,27 @@ def stop_speaking():
     )
 
 
-# -----------------------------
-# API Key
-# -----------------------------
+# --------------------------------------------------
+# API KEY
+# --------------------------------------------------
+
 api_key = os.getenv("GROQ_API_KEY")
 
 if not api_key:
 
-    st.error("GROQ_API_KEY is not configured.")
+    st.error(
+        "GROQ_API_KEY is not configured."
+    )
+
     st.stop()
 
 
-# -----------------------------
-# Status
-# -----------------------------
-st.success("🟢 Assistant Ready")
+# --------------------------------------------------
+# VOICE INPUT
+# --------------------------------------------------
 
+st.divider()
 
-# -----------------------------
-# Voice Input
-# -----------------------------
 st.subheader("🎤 Voice Input")
 
 audio = st.audio_input(
@@ -203,9 +231,12 @@ audio = st.audio_input(
     sample_rate=16000
 )
 
+
 if audio:
 
-    with st.spinner("🎧 Understanding your voice..."):
+    with st.spinner(
+        "🎧 Understanding your voice..."
+    ):
 
         try:
 
@@ -224,7 +255,9 @@ if audio:
                     f"**🧑 You said:** {spoken_text}"
                 )
 
-                with st.spinner("🤖 Thinking..."):
+                with st.spinner(
+                    "🤖 Thinking..."
+                ):
 
                     answer = ask_ai(
                         spoken_text,
@@ -254,22 +287,42 @@ if audio:
             )
 
 
-# -----------------------------
-# Stop Speaking Button
-# -----------------------------
+# --------------------------------------------------
+# VOICE CONTROLS
+# --------------------------------------------------
+
 st.divider()
 
-if st.button(
-    "🛑 Stop Speaking",
-    use_container_width=True
-):
+st.subheader("🎛️ Voice Controls")
 
-    stop_speaking()
+col1, col2 = st.columns(2)
+
+with col1:
+
+    if st.button(
+        "🛑 Stop Speaking",
+        use_container_width=True
+    ):
+
+        stop_speaking()
 
 
-# -----------------------------
-# Text Input
-# -----------------------------
+with col2:
+
+    if st.button(
+        "🎤 Ask Another Question",
+        use_container_width=True
+    ):
+
+        stop_speaking()
+
+        st.rerun()
+
+
+# --------------------------------------------------
+# TEXT INPUT
+# --------------------------------------------------
+
 st.divider()
 
 st.subheader("⌨️ Text Input")
@@ -277,6 +330,7 @@ st.subheader("⌨️ Text Input")
 prompt = st.text_input(
     "Or type your question:"
 )
+
 
 if st.button(
     "Ask AI",
@@ -287,7 +341,9 @@ if st.button(
         ("You", prompt)
     )
 
-    with st.spinner("🤖 Thinking..."):
+    with st.spinner(
+        "🤖 Thinking..."
+    ):
 
         answer = ask_ai(
             prompt,
@@ -305,33 +361,46 @@ if st.button(
     speak_answer(answer)
 
 
-# -----------------------------
-# Conversation
-# -----------------------------
+# --------------------------------------------------
+# CONVERSATION
+# --------------------------------------------------
+
 st.divider()
 
 st.subheader("💬 Conversation")
 
-for speaker, message in st.session_state.conversation:
+if not st.session_state.conversation:
 
-    if speaker == "You":
+    st.info(
+        "Your conversation will appear here."
+    )
 
-        st.markdown(
-            f"**🧑 You:** {message}"
-        )
+else:
 
-    else:
+    for speaker, message in (
+        st.session_state.conversation
+    ):
 
-        st.markdown(
-            f"**🤖 Assistant:** {message}"
-        )
+        if speaker == "You":
+
+            st.markdown(
+                f"**🧑 You:** {message}"
+            )
+
+        else:
+
+            st.markdown(
+                f"**🤖 Assistant:** {message}"
+            )
 
 
-# -----------------------------
-# Footer
-# -----------------------------
+# --------------------------------------------------
+# FOOTER
+# --------------------------------------------------
+
 st.divider()
 
 st.caption(
-    "🤖 AI Voice Assistant | Developed by Abubakkar Cheema"
+    "🤖 AI Voice Assistant | "
+    "Developed by Abubakkar Cheema"
 )
