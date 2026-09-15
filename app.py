@@ -19,106 +19,92 @@ if "conversation" not in st.session_state:
 
 prompt = st.text_input("Enter your question:")
 
-if st.button("Ask AI"):
-    if prompt.strip():
+if st.button("Ask AI") and prompt.strip():
 
-        st.session_state.conversation.append(
-            ("You", prompt)
-        )
+    st.session_state.conversation.append(
+        ("You", prompt)
+    )
 
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "You are a helpful AI voice assistant. "
-                    "Give clear, simple and accurate answers."
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are a helpful AI voice assistant. "
+                "Give clear, simple and accurate answers."
+            )
+        }
+    ]
+
+    for speaker, message in st.session_state.conversation:
+        messages.append({
+            "role": "user" if speaker == "You" else "assistant",
+            "content": message
+        })
+
+    api_key = os.getenv("GROQ_API_KEY")
+
+    if not api_key:
+        st.error("GROQ_API_KEY is not configured.")
+
+    else:
+
+        url = "https://api.groq.com/openai/v1/chat/completions"
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+
+        data = {
+            "model": "openai/gpt-oss-20b",
+            "messages": messages,
+            "temperature": 0.7,
+            "max_tokens": 1024
+        }
+
+        try:
+
+            response = requests.post(
+                url,
+                headers=headers,
+                json=data,
+                timeout=60
+            )
+
+            if response.status_code == 200:
+
+                result = response.json()
+
+                answer = result["choices"][0]["message"]["content"]
+
+                st.session_state.conversation.append(
+                    ("Assistant", answer)
                 )
-            }
-        ]
 
-        for speaker, message in st.session_state.conversation:
-            if speaker == "You":
-                messages.append({
-                    "role": "user",
-                    "content": message
-                })
             else:
-                messages.append({
-                    "role": "assistant",
-                    "content": message
-                })
 
-        api_key = os.getenv("GROQ_API_KEY")
-
-        if not api_key:
-            st.error("GROQ_API_KEY is not configured.")
-
-        else:
-
-            url = "https://api.groq.com/openai/v1/chat/completions"
-
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            }
-
-            data = {
-                "model": "llama-3.3-70b-versatile",
-                "messages": messages,
-                "temperature": 0.7,
-                "max_tokens": 1024
-            }
-
-            try:
-
-                response = requests.post(
-                    url,
-                    headers=headers,
-                    json=data,
-                    timeout=60
+                st.error(
+                    f"API Error: {response.status_code}"
                 )
 
-                if response.status_code == 200:
+                st.code(response.text)
 
-                    result = response.json()
+        except requests.exceptions.Timeout:
 
-                    answer = result["choices"][0]["message"]["content"]
+            st.error("The AI request timed out.")
 
-                    st.session_state.conversation.append(
-                        ("Assistant", answer)
-                    )
+        except requests.exceptions.RequestException as e:
 
-                else:
+            st.error(f"Connection error: {e}")
 
-                    st.error(
-                        f"API Error: {response.status_code}"
-                    )
+        except Exception as e:
 
-                    st.code(response.text)
-
-            except requests.exceptions.Timeout:
-
-                st.error("The AI request timed out.")
-
-            except requests.exceptions.RequestException as e:
-
-                st.error(f"Connection error: {e}")
-
-            except Exception as e:
-
-                st.error(f"Unexpected error: {e}")
+            st.error(f"Unexpected error: {e}")
 
 
 for speaker, message in st.session_state.conversation:
 
     if speaker == "You":
-
-        st.markdown(
-            f"**🧑 You:** {message}"
-        )
-
+        st.markdown(f"**🧑 You:** {message}")
     else:
-
-        st.markdown(
-            f"**🤖 Assistant:** {message}"
-        )
+        st.markdown(f"**🤖 Assistant:** {message}")
